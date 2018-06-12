@@ -91,6 +91,15 @@ When adding a directory, both the file path needs to end with a '/' character an
       mfs.getSystemVolume().addFile(args.file_id, data)
       mfs.generate()
       with argparse.FileType("wb")(args.output) as f: f.write(mfs.data)
+    elif args.zip:
+      z = zipfile.ZipFile(args.output, "w", zipfile.ZIP_STORED)
+      for id in xrange(mfs.getSystemVolume().numFiles):
+        file = mfs.getSystemVolume().getFile(id)
+        if file:
+          zi = zipfile.ZipInfo("file_%d.bin" % id)
+          zi.external_attr = (0644 << 16)
+          z.writestr(zi, file.data)
+      z.close()
   else:
     data = args.cfg.read()
     cfg = CFG(data)
