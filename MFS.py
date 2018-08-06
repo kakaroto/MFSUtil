@@ -51,17 +51,25 @@ class MFS(object):
     return self.system_volume
 
   def generate(self):
+    for sys_page in self.sys_pages:
+      sys_page.resetChunks()
+    for data_page in self.data_pages:
+      data_page.resetChunks()
+
     self.system_volume.generate()
     system_chunks = self.system_volume.generateChunks()
-    for sys_page in self.sys_pages:
-      sys_page.chunks = []
-      sys_page.generate()
     for i in xrange(0, len(system_chunks), MFS.CHUNKS_PER_SYSTEM_PAGE):
-      self.sys_pages[i].chunks = system_chunks[i * MFS.CHUNKS_PER_SYSTEM_PAGE: (i+1) * MFS.CHUNKS_PER_SYSTEM_PAGE]
+      chunks = system_chunks[i * MFS.CHUNKS_PER_SYSTEM_PAGE: (i+1) * MFS.CHUNKS_PER_SYSTEM_PAGE]
+      self.sys_pages[i].setChunks(chunks)
       self.sys_pages[i].generate()
 
     for file in self.system_volume.iterateFiles():
-      file.generateChunks()
+      chunks = file.generateChunks()
+      for chunk in chunks:
+        data_page_idx = (chunk.id - self.system_volume.total_chunks) // MFS.CHUNKS_PER_DATA_PAGE
+        self.data_pages[data_page_idx].addChunk(chunk)
+    for data_page in self.data_pages:
+      data_page.generate()
     self.data = ""
     for sys_page in self.sys_pages:
       self.data += sys_page.data
@@ -157,6 +165,22 @@ class MFSPage(object):
       return self.chunks[id - self.first_chunk]
     return None
 
+  def resetChunks(self):
+    if self.isSystemPage():
+      self.chunks = []
+    else:
+      self.chunks = [None] * MFS.CHUNKS_PER_DATA_PAGE
+
+  def setChunks(self, chunks):
+    self.chunks = chunks
+
+  def addChunk(self, chunk):
+    id = chunk.id
+    assert self.isDataPage() and \
+      id >= self.first_chunk and \
+      id < self.first_chunk + MFS.CHUNKS_PER_DATA_PAGE
+    self.chunks[id - self.first_chunk] = chunk
+
   def generate(self):
     data = self.PAGE_HEADER_FMT.pack(self.signature, self.USN, self.num_erase, self.next_erase,
                                      self.first_chunk, 0, 0)
@@ -221,6 +245,9 @@ class MFSPage(object):
     else:
       res = "Data-%d: %X" % (self.page_id, self.first_chunk)
     return res
+
+  def __repr__(self):
+    return str(self)
 
 class MFSChunk(object):
   def __init__(self, data, chunk_id, raw=True):
