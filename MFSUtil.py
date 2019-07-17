@@ -39,6 +39,11 @@ When adding a directory, both the file path needs to end with a '/' character an
                       help="Group ID for file being added to CFG", metavar="GID")
   parser.add_argument("--recursive", dest="recursive", action="store_true",
                       help="Recursive deletion for a file path in CFG")
+  parser.add_argument("--alignment", dest="alignment", type=int, default=0,
+                      help="Alignment type for CFG files. (default: 0).\n"
+                      "0 : packed.\n"
+                      "1 : align all files on chunk start.\n"
+                      "2 : align end of files on end of chunk.")
   
   group = parser.add_mutually_exclusive_group(required=True)
   group.add_argument("-m", "--mfs", dest="mfs", type=argparse.FileType('rb'),
@@ -105,7 +110,7 @@ When adding a directory, both the file path needs to end with a '/' character an
     cfg = CFG(data)
     if args.dump:
       with argparse.FileType("wb")(args.output) as f: f.write("%s" % cfg)
-      cfg.generate()
+      cfg.generate(args.alignment)
       #with argparse.FileType("wb")(args.output) as f: f.write(cfg.data)
       assert cfg.data == data
     elif args.zip:
@@ -135,7 +140,7 @@ When adding a directory, both the file path needs to end with a '/' character an
         else:
           print "File path '%s' is a non-empty directory in the CFG file (use --recursive)" % args.file_path
         sys.exit(-1)
-      cfg.generate()
+      cfg.generate(args.alignment)
       with argparse.FileType("wb")(args.output) as f: f.write(cfg.data)
     elif args.add:
       file = cfg.getFile(args.file_path)
@@ -154,7 +159,7 @@ When adding a directory, both the file path needs to end with a '/' character an
         print "Error adding file to path '%s' in the CFG file " \
           "(parent doesn't exist or is not a directory?)" % args.file_path
         sys.exit(-1)
-      cfg.generate()
+      cfg.generate(args.alignment)
       with argparse.FileType("wb")(args.output) as f: f.write(cfg.data)
       
         

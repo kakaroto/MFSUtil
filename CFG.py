@@ -1,5 +1,10 @@
 import struct, os
 
+class CFGAlignment:
+  ALIGN_NONE = 0
+  ALIGN_START = 1
+  ALIGN_END = 2
+
 class CFG(object):
   CFG_FMT = struct.Struct("<L")
 
@@ -15,8 +20,8 @@ class CFG(object):
     parent = None
     for i in xrange(self.num_records):
         record = CFGRecord(self.data, i)
-        assert (record.isDirectory() and record.offset == data_offset) or \
-          (not record.isDirectory() and record.offset == data_offset + total_data)
+        #assert (record.isDirectory() and record.offset == data_offset) or \
+        #  (not record.isDirectory() and record.offset == data_offset + total_data)
         total_data += record.size
         if record.name == "..":
           assert len(path) > 1
@@ -71,19 +76,26 @@ class CFG(object):
     self.files.append(file)
     return True
 
-  def generate(self):
+  def generate(self, alignment):
     self.records = []
     file_data = ""
     if len(self.files) > 0:
-      (self.records, file_data) = self.files[0].generateRecords()
+      (self.records, file_data) = self.files[0].generateRecords(alignment=alignment)
     self.num_records = len(self.records)
     self.data = self.CFG_FMT.pack(self.num_records)
     data_offset = len(self.data) + CFGRecord.RECORD_FMT.size * self.num_records
+    alignment_data = ""
+    if alignment != CFGAlignment.ALIGN_NONE:
+      alignment_extra = data_offset % 0x40
+      if alignment_extra > 0:
+          alignment_data += struct.pack("<B", 0) * (0x40 - alignment_extra)
+          data_offset += 0x40 - alignment_extra
     data_size = 0
     for record in self.records:
       record.offset += data_offset
       record.generate()
       self.data += record.data
+    self.data += alignment_data
     self.data += file_data
 
   def __str__(self):
@@ -211,21 +223,31 @@ class CFGFile(object):
     assert self.isDirectory() and child in self.children
     self.children.remove(child)
 
-  def generateRecords(self, data = ""):
-    self.record.offset = 0 if self.isDirectory() else len(data)
+  def generateRecords(self, data = "", alignment=CFGAlignment.ALIGN_NONE):
     self.record.size = 0 if self.isDirectory() else self.size
+    self.record.offset = 0 if self.isDirectory() else len(data)
     records = [self.record]
-    for child in self.children:
-      (sub_records, new_data) = child.generateRecords(data)
-      records += sub_records
-      data = new_data
-
     if self.isDirectory():
+      for child in self.children:
+        (sub_records, new_data) = child.generateRecords(data, alignment)
+        records += sub_records
+        data = new_data
+
       dotdot = self.record.copy()
       dotdot.name = '..'
       dotdot.opt = 0
       records.append(dotdot)
-    data += self.data
+    else:
+      alignment_extra = 0
+      if alignment == CFGAlignment.ALIGN_START:
+        alignment_extra = self.record.offset % 0x40
+      elif self.record.size != 0 and alignment == CFGAlignment.ALIGN_END:
+        alignment_extra = (self.record.offset + self.record.size) % 0x40
+      if alignment_extra > 0:
+          data += struct.pack("<B", 0) * (0x40 - alignment_extra)
+          self.record.offset += 0x40 - alignment_extra
+      data += self.data
+
     return (records, data)
 
   def __str__(self):
