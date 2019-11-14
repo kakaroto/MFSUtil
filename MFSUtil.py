@@ -44,6 +44,8 @@ When adding a directory, both the file path needs to end with a '/' character an
                       "0 : packed.\n"
                       "1 : align all files on chunk start.\n"
                       "2 : align end of files on end of chunk.")
+  parser.add_argument("--deoptimize", dest="optimize", action="store_false",
+                      help="De-optimize chain sequences when adding a file to MFS.")
   
   group = parser.add_mutually_exclusive_group(required=True)
   group.add_argument("-m", "--mfs", dest="mfs", type=argparse.FileType('rb'),
@@ -93,7 +95,7 @@ When adding a directory, both the file path needs to end with a '/' character an
         print "File ID %d already exists in the MFS System Volume" % args.file_id
         sys.exit(-1)
       data = args.add.read()
-      mfs.getSystemVolume().addFile(args.file_id, data)
+      mfs.getSystemVolume().addFile(args.file_id, data, args.optimize)
       mfs.generate()
       with argparse.FileType("wb")(args.output) as f: f.write(mfs.data)
     elif args.zip:

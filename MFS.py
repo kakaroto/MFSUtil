@@ -344,13 +344,16 @@ class MFSSystemVolume(object):
       self.data_ids[chain - self.num_files] = 0
       chain = next_chain
 
-  def addFile(self, id, data):
+  def addFile(self, id, data, optimize=True):
     self.removeFile(id)
     file = MFSFile(id)
     size = len(data)
     data_chain = []
     for offset in xrange(0, size, MFS.CHUNK_SIZE):
-      chain = self.getNextFreeDataChunk()
+      if optimize:
+        chain = self.getNextFreeDataChunk()
+      else:
+        chain = self.getLastFreeDataChunk()
       if chain == -1:
         # If not enough space, free previously set chains
         for chain in data_chain:
@@ -370,6 +373,12 @@ class MFSSystemVolume(object):
 
   def getNextFreeDataChunk(self):
     for i, chain in enumerate(self.data_ids):
+      if chain == 0:
+        return i
+    return -1
+
+  def getLastFreeDataChunk(self):
+    for i, chain in reversed(list(enumerate(self.data_ids))):
       if chain == 0:
         return i
     return -1
