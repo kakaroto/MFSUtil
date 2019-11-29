@@ -58,7 +58,7 @@ class MFS(object):
 
     self.system_volume.generate()
     system_chunks = self.system_volume.generateChunks()
-    for i in xrange(0, len(system_chunks), MFS.CHUNKS_PER_SYSTEM_PAGE):
+    for i in xrange(0, len(self.sys_pages)):
       chunks = system_chunks[i * MFS.CHUNKS_PER_SYSTEM_PAGE: (i+1) * MFS.CHUNKS_PER_SYSTEM_PAGE]
       self.sys_pages[i].setChunks(chunks)
       self.sys_pages[i].generate()
